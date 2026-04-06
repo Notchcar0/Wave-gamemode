@@ -40,11 +40,11 @@ function resize(){
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     scale = Math.min(canvas.width/BASE_W, canvas.height/BASE_H);
-    baseSpeed = 16*scale;
+    baseSpeed = 20*scale;
     playerX = canvas.width*0.2;
     segmentLength = 120*scale;
     amplitude = 120*scale;
-    thickness = 200*scale;
+    thickness = 300*scale;
     playerRadius = 20*scale;
     reset();
 }
