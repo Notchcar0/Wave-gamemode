@@ -1,236 +1,249 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <title>GD Wave</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #3d3366; font-family: 'Arial', sans-serif; }
-        canvas { display: block; }
-        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; pointer-events: none; }
-    </style>
+<meta charset="UTF-8">
+<title>GD Wave – Glow Corridor</title>
+<style>
+body { margin:0; overflow:hidden; background:black; }
+canvas { display:block; }
+</style>
 </head>
 <body>
-    <div id="ui"><h1 id="msg">Klik of Spatie om te Starten</h1></div>
-    <canvas id="gameCanvas"></canvas>
+
+<canvas id="gameCanvas"></canvas>
 
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const msg = document.getElementById('msg');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-    let py, pyv, isHolding, isGameOver, trail, spikes, frameCount, score;
-    let baseSpeed, playerX;
-    let stars;
-    
-    // Highscore ophalen uit browser geheugen
-    let highscore = localStorage.getItem("gd_highscore") || 0;
+const BASE_W = 1920;
+const BASE_H = 1080;
 
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        
-        // Snelheid en positie schalen mee met de breedte van het scherm
-        baseSpeed = canvas.width / 160; 
-        playerX = canvas.width / 5;
-    }
-    window.addEventListener('resize', resize);
-    resize();
+let scale, baseSpeed, playerX;
+let py, isHolding=false, isGameOver=false;
+let path=[], trail=[];
+let lastTime=0;
+let canMove=false;
+let startCountdown=1000;
 
-    function reset() {
-        py = canvas.height / 10;
-        pyv = 0;
-        isHolding = false;
-        isGameOver = false;
-        trail = [];
-        spikes = [];
-        frameCount = 0;
-        score = 0;
-        msg.innerText = "";
-        stars = [];
-            for (let i = 0; i < 100; i++) {
-                stars.push({
-                    x: Math.random() * canvas.width,
-                    y: Math.random() * canvas.height,
-                    size: Math.random() * 5,
-                    speed: Math.random() * baseSpeed * 0.5 + 0.2
-    });
-}
-    }
+let segmentLength, amplitude, thickness, playerRadius;
 
-    const press = () => { if(isGameOver) reset(); else isHolding = true; };
-    const release = () => isHolding = false;
+let score=0, highScore=0, scoreSpeed=5;
 
-    window.addEventListener('mousedown', press);
-    window.addEventListener('mouseup', release);
-    window.addEventListener('touchstart', (e) => { e.preventDefault(); press(); }, {passive: false});
-    window.addEventListener('touchend', release);
-    window.addEventListener('keydown', (e) => { 
-    if(e.code === 'Space' || e.code === 'ArrowUp') press(); 
-});
-
-window.addEventListener('keyup', (e) => { 
-    if(e.code === 'Space' || e.code === 'ArrowUp') release(); 
-});
-
-    function spawnSpike() {
-    const isTop = Math.random() > 0.5;
-    
-    // Nu gebaseerd op hoogte i.p.v. breedte
-    const spikeWidth = canvas.height * 1.1 ; 
-    
-    spikes.push({
-        x: canvas.width + (spikeWidth / 2),
-        y: isTop ? 0 : canvas.height,
-        w: spikeWidth,
-        h: spikeWidth / 2,
-        isTop: isTop
-    });
+// sterrenachtergrond
+let stars=[];
+for(let i=0;i<100;i++){
+    stars.push({x:Math.random()*BASE_W, y:Math.random()*BASE_H, r:Math.random()*2+1, speed:Math.random()*0.5+0.2});
 }
 
+function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    scale = Math.min(canvas.width/BASE_W, canvas.height/BASE_H);
+    baseSpeed = 16*scale;
+    playerX = canvas.width*0.2;
+    segmentLength = 120*scale;
+    amplitude = 120*scale;
+    thickness = 200*scale;
+    playerRadius = 20*scale;
+    reset();
+}
+window.addEventListener("resize", resize);
+resize();
 
-    function checkHighscore() {
-        let finalScore = Math.floor(score / 10);
-        if (finalScore > highscore) {
-            highscore = finalScore;
-            localStorage.setItem("gd_highscore", highscore);
+function reset(){
+    isGameOver=false;
+    trail=[];
+    path=[];
+    canMove=false;
+    startCountdown=1000;
+    score=0;
+    let startX=0;
+    let startY=canvas.height/2;
+    path.push({x:startX, y:startY});
+    for(let i=0;i<30;i++) addSegment();
+    py = getY(playerX);
+}
+
+function addSegment(){
+    let last = path[path.length-1];
+    let dir = Math.random()>0.5?1:-1;
+    let newY = last.y + dir*amplitude;
+    if(newY<thickness) newY=last.y+amplitude;
+    if(newY>canvas.height-thickness) newY=last.y-amplitude;
+    path.push({x:last.x+segmentLength, y:newY});
+}
+
+function press(){ if(isGameOver) reset(); isHolding=true; }
+function release(){ isHolding=false; }
+
+window.addEventListener("mousedown", press);
+window.addEventListener("mouseup", release);
+window.addEventListener("touchstart", e=>{ e.preventDefault(); press(); }, {passive:false});
+window.addEventListener("touchend", release);
+window.addEventListener("keydown", e=>{ if(e.code==="Space") press(); });
+window.addEventListener("keyup", e=>{ if(e.code==="Space") release(); });
+
+function getY(x){
+    if(path.length<2) return canvas.height/2;
+    for(let i=0;i<path.length-1;i++){
+        let p1=path[i], p2=path[i+1];
+        if(x>=p1.x && x<=p2.x){
+            let t=(x-p1.x)/(p2.x-p1.x);
+            return p1.y+(p2.y-p1.y)*t;
+        }
+    }
+    return path[path.length-1].y;
+}
+
+function update(time=0){
+    let delta=(time-lastTime)/16.67;
+    lastTime=time;
+
+    if(isGameOver){ draw(); requestAnimationFrame(update); return; }
+
+    // countdown
+    if(startCountdown>0){
+        startCountdown-=delta*16.67;
+        if(startCountdown<=0){
+            startCountdown=0;
+            canMove=true;
         }
     }
 
-    function update() {
-        if (!isGameOver) {
-            // Beweeg omhoog of omlaag
-            pyv = isHolding ? -baseSpeed : baseSpeed;
-            py += pyv;
+    if(canMove){
+        let move=baseSpeed*delta;
+        py += isHolding?-move:move;
 
-            // Check schermranden
-            if (py < 0 || py > canvas.height) {
-                isGameOver = true;
-                checkHighscore();
-            }
+        path.forEach(p=>p.x-=baseSpeed*delta);
+        while(path[path.length-1].x<canvas.width) addSegment();
+        if(path[0].x<-segmentLength) path.shift();
 
-            // Trail updaten (relatief aan snelheid)
-            trail.push({x: playerX, y: py});
-            if (trail.length > 100) trail.shift();
-            trail.forEach(p => p.x -= baseSpeed);
-
-            // Score verhogen
-            score++;
-
-            // Spikes spawnen elke 30 frames
-            frameCount++;
-            if (frameCount % 30 === 0) spawnSpike();
-
-            for (let i = spikes.length - 1; i >= 0; i--) {
-                let s = spikes[i];
-                s.x -= baseSpeed;
-
-                // Hitbox berekening (driehoek-vorm)
-                let hitW = s.w * 1; 
-                let hitH = s.h * 1;
-                let dx = Math.abs(playerX - s.x);
-
-                if (dx < hitW / 2) {
-                    let currentHitHeight = hitH * (1 - (dx / (hitW / 2)));
-                    if (s.isTop) {
-                        if (py < currentHitHeight) { isGameOver = true; checkHighscore(); }
-                    } else {
-                        if (py > canvas.height - currentHitHeight) { isGameOver = true; checkHighscore(); }
-                    }
-                }
-                if (s.x < -canvas.width) spikes.splice(i, 1);
-            }
+        let center=getY(playerX);
+        if(py-playerRadius < center-thickness/2 || py+playerRadius > center+thickness/2){
+            isGameOver=true;
+            if(score>highScore) highScore=Math.floor(score);
         }
 
-        stars.forEach(s => {
-            s.x -= s.speed;
-
-            if (s.x < 0) {
-                s.x = canvas.width;
-                s.y = Math.random() * canvas.height;
-    }
-});
-
-        draw();
-        requestAnimationFrame(update);
+        score += scoreSpeed*delta*16.67/1000;
     }
 
-    function draw() {
-        // Achtergrond
-        ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    trail.push({x:playerX, y:py});
+    if(trail.length>150) trail.shift();
+    if(canMove) trail.forEach(p=>p.x-=baseSpeed*delta);
 
-        // Sterren achtergrond
-        ctx.fillStyle = "#0ff";
-        stars.forEach(s => {
-            ctx.globalAlpha = 0.3 + Math.random() * 0.7;
-            ctx.fillRect(s.x, s.y, s.size, s.size);
-        });
-        ctx.globalAlpha = 1;
+    stars.forEach(s=>{ s.x-=s.speed; if(s.x<0) s.x=canvas.width; });
 
-        // Trail (Wave lijn)
-        ctx.strokeStyle = '#0ff';
-        ctx.lineWidth = 15;
+    draw();
+    requestAnimationFrame(update);
+}
+
+function draw(){
+    // achtergrond
+    ctx.fillStyle="black";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="white";
+    stars.forEach(s=>{ ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); });
+
+    // corridor gradient
+    if(path.length>0){
+        let grad=ctx.createLinearGradient(0,0,0,canvas.height);
+        grad.addColorStop(0,"#0a3d91");
+        grad.addColorStop(1,"#00bfff");
+        ctx.fillStyle=grad;
+
+        // boven
         ctx.beginPath();
-        trail.forEach((p, i) => {
-            if (i === 0) ctx.moveTo(p.x, p.y);
-            else ctx.lineTo(p.x, p.y);
-        });
+        ctx.moveTo(path[0].x,0);
+        path.forEach(p=>ctx.lineTo(p.x, p.y-thickness/2));
+        ctx.lineTo(path[path.length-1].x,0);
+        ctx.closePath();
+        ctx.fill();
+
+        // onder
+        ctx.beginPath();
+        ctx.moveTo(path[0].x,canvas.height);
+        path.forEach(p=>ctx.lineTo(p.x,p.y+thickness/2));
+        ctx.lineTo(path[path.length-1].x,canvas.height);
+        ctx.closePath();
+        ctx.fill();
+
+        // glow rand
+        ctx.save();
+        ctx.strokeStyle="white";
+        ctx.lineWidth=4*scale;
+        ctx.shadowColor="white";
+        ctx.shadowBlur=20*scale;
+
+        // bovenrand
+        ctx.beginPath();
+        path.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y-thickness/2); else ctx.lineTo(p.x,p.y-thickness/2); });
         ctx.stroke();
 
-        // Spikes
-        ctx.fillStyle = '#055482';
-
-        spikes.forEach(s => {
-            ctx.beginPath();
-            if (s.isTop) {
-                ctx.moveTo(s.x - s.w/2, 0);
-                ctx.lineTo(s.x + s.w/2, 0);
-                ctx.lineTo(s.x, s.h);
-            } else {
-                ctx.moveTo(s.x - s.w/2, canvas.height);
-                ctx.lineTo(s.x + s.w/2, canvas.height);
-                ctx.lineTo(s.x, canvas.height - s.h);
-            }
-            ctx.fill();
-        });
-
-        // Wave speler
-        ctx.fillStyle = 'white';
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "#0ff";
+        // onderrand
         ctx.beginPath();
-        ctx.arc(playerX, py, 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        // HUD: Score en Highscore
-        ctx.fillStyle = "white";
-        ctx.font = "bold 24px Arial";
-        ctx.textAlign = "left";
-        ctx.fillText("SCORE: " + Math.floor(score / 10), 25, 45);
-        ctx.fillStyle = "rgba(255,255,255,0.5)";
-        ctx.font = "18px Arial";
-        ctx.fillText("BEST: " + highscore, 25, 75);
-
-        // Game Over Scherm
-        if (isGameOver && frameCount > 0) {
-            ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.textAlign = "center";
-            ctx.fillStyle = "#ff3333";
-            ctx.font = "bold 50px Arial";
-            ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
-            ctx.fillStyle = "white";
-            ctx.font = "24px Arial";
-            ctx.fillText("Score: " + Math.floor(score / 10), canvas.width / 2, canvas.height / 2 + 30);
-            ctx.font = "18px Arial";
-            ctx.fillText("Click to try again", canvas.width / 2, canvas.height / 2 + 80);
-        }
+        path.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y+thickness/2); else ctx.lineTo(p.x,p.y+thickness/2); });
+        ctx.stroke();
+        ctx.restore();
     }
 
-    reset();
-    isGameOver = true;
-    update();
+    // trail
+    if(trail.length>0){
+        let gradTrail=ctx.createLinearGradient(0,0,canvas.width,0);
+        gradTrail.addColorStop(0,"#0ff");
+        gradTrail.addColorStop(1,"#00ffff");
+        ctx.strokeStyle=gradTrail;
+        ctx.lineWidth=25*scale;
+        ctx.beginPath();
+        trail.forEach((p,i)=>{ if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+        ctx.stroke();
+    }
+
+    // speler glow
+    ctx.save();
+    ctx.shadowColor="#0ff";
+    ctx.shadowBlur=20*scale;
+    ctx.fillStyle="white";
+    ctx.beginPath();
+    ctx.arc(playerX,py,playerRadius,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    // score
+    ctx.fillStyle="yellow";
+    ctx.font="30px Arial";
+    ctx.fillText("Score: "+Math.floor(score),20,40);
+    ctx.fillText("High Score: "+Math.floor(highScore),20,80);
+
+    // countdown
+    if(!canMove){
+        ctx.fillStyle="yellow";
+        ctx.font="50px Arial";
+        ctx.fillText("Get Ready!",canvas.width/2-130,canvas.height/2);
+
+        let barWidth=400;
+        let barHeight=20;
+        let x=canvas.width/2-barWidth/2;
+        let y=canvas.height/2+40;
+        let pct=startCountdown/1000;
+        ctx.fillStyle="grey";
+        ctx.fillRect(x,y,barWidth,barHeight);
+        ctx.fillStyle="lime";
+        ctx.fillRect(x,y,barWidth*(1-pct),barHeight);
+        ctx.strokeStyle="white";
+        ctx.lineWidth=2;
+        ctx.strokeRect(x,y,barWidth,barHeight);
+    }
+
+    if(isGameOver){
+        ctx.fillStyle="red";
+        ctx.font="40px Arial";
+        ctx.fillText("GAME OVER",canvas.width/2-120,canvas.height/2);
+    }
+}
+
+update();
 </script>
+
 </body>
 </html>
