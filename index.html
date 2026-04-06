@@ -75,14 +75,14 @@ window.addEventListener('keyup', (e) => {
     function spawnSpike() {
     const isTop = Math.random() > 0.5;
     
-    // We bepalen eerst de breedte (bijv. 60% van het scherm)
-    const spikeWidth = canvas.width * 0.5; 
+    // Nu gebaseerd op hoogte i.p.v. breedte
+    const spikeWidth = canvas.height * 1.1 ; 
     
     spikes.push({
         x: canvas.width + (spikeWidth / 2),
         y: isTop ? 0 : canvas.height,
         w: spikeWidth,
-        h: spikeWidth / 2, // De hoogte is nu altijd de helft van de breedte
+        h: spikeWidth / 2,
         isTop: isTop
     });
 }
@@ -118,7 +118,7 @@ window.addEventListener('keyup', (e) => {
 
             // Spikes spawnen elke 30 frames
             frameCount++;
-            if (frameCount % 20 === 0) spawnSpike();
+            if (frameCount % 30 === 0) spawnSpike();
 
             for (let i = spikes.length - 1; i >= 0; i--) {
                 let s = spikes[i];
