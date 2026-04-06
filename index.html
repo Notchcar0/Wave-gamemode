@@ -20,6 +20,7 @@
 
     let py, pyv, isHolding, isGameOver, trail, spikes, frameCount, score;
     let baseSpeed, playerX;
+    let stars;
     
     // Highscore ophalen uit browser geheugen
     let highscore = localStorage.getItem("gd_highscore") || 0;
@@ -45,6 +46,15 @@
         frameCount = 0;
         score = 0;
         msg.innerText = "";
+        stars = [];
+            for (let i = 0; i < 100; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 5,
+                    speed: Math.random() * baseSpeed * 0.5 + 0.2
+    });
+}
     }
 
     const press = () => { if(isGameOver) reset(); else isHolding = true; };
@@ -131,6 +141,15 @@ window.addEventListener('keyup', (e) => {
             }
         }
 
+        stars.forEach(s => {
+            s.x -= s.speed;
+
+            if (s.x < 0) {
+                s.x = canvas.width;
+                s.y = Math.random() * canvas.height;
+    }
+});
+
         draw();
         requestAnimationFrame(update);
     }
@@ -139,6 +158,14 @@ window.addEventListener('keyup', (e) => {
         // Achtergrond
         ctx.fillStyle = '#0a0a0a';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Sterren achtergrond
+        ctx.fillStyle = "#0ff";
+        stars.forEach(s => {
+            ctx.globalAlpha = 0.3 + Math.random() * 0.7;
+            ctx.fillRect(s.x, s.y, s.size, s.size);
+        });
+        ctx.globalAlpha = 1;
 
         // Trail (Wave lijn)
         ctx.strokeStyle = '#0ff';
@@ -151,7 +178,8 @@ window.addEventListener('keyup', (e) => {
         ctx.stroke();
 
         // Spikes
-        ctx.fillStyle = '#ff3333';
+        ctx.fillStyle = '#055482';
+
         spikes.forEach(s => {
             ctx.beginPath();
             if (s.isTop) {
