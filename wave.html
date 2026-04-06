@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>Geometry Dash Wave - Verbeterde Hitbox</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: Arial, sans-serif; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; text-align: center; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="ui"><h1 id="msg">Klik om te Starten</h1></div>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const msg = document.getElementById('msg');
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    let py, pyv, isHolding, isGameOver, trail, spikes, frameCount;
+    const speed = 12;
+    const playerX = canvas.width / 4;
+
+    function reset() {
+        py = canvas.height / 4;
+        pyv = 0;
+        isHolding = false;
+        isGameOver = false;
+        trail = [];
+        spikes = [];
+        frameCount = 0;
+        msg.innerText = "";
+    }
+
+    const press = () => { if(isGameOver) reset(); else isHolding = true; };
+    const release = () => isHolding = false;
+
+    window.addEventListener('mousedown', press);
+    window.addEventListener('mouseup', release);
+    window.addEventListener('keydown', (e) => { if(e.code === 'Space') press(); });
+    window.addEventListener('keyup', (e) => { if(e.code === 'Space') release(); });
+
+    function spawnSpike() {
+        const isTop = Math.random() > 0.5;
+        spikes.push({
+            x: canvas.width + 100,
+            y: isTop ? 0 : canvas.height,
+            w: 800,  
+            h: 450, 
+            isTop: isTop
+        });
+    }
+
+    function update() {
+        if (!isGameOver) {
+            pyv = isHolding ? -speed : speed;
+            py += pyv;
+
+            if (py < 0 || py > canvas.height) isGameOver = true;
+
+            trail.push({x: playerX, y: py});
+            if (trail.length > 150) trail.shift();
+            trail.forEach(p => p.x -= speed);
+
+            frameCount++;
+            if (frameCount % 20 === 0) spawnSpike();
+
+            for (let i = spikes.length - 1; i >= 0; i--) {
+                let s = spikes[i];
+                s.x -= speed;
+
+                // --- HIER STAAT DE NIEUWE HITBOX LOGICA ---
+                let hitW = s.w * 1; // Hitbox is 70% van de breedte (vergevensgezind)
+                let hitH = s.h * 1; // Hitbox is 80% van de hoogte
+                
+                let dx = Math.abs(playerX - s.x);
+                if (dx < hitW / 2) {
+                    // Bereken hoe hoog de spike is op de plek waar de speler is (driehoek-vorm)
+                    let currentHitHeight = hitH * (1 - (dx / (hitW / 2)));
+                    
+                    if (s.isTop) {
+                        if (py < currentHitHeight) isGameOver = true;
+                    } else {
+                        if (py > canvas.height - currentHitHeight) isGameOver = true;
+                    }
+                }
+                // --- EINDE HITBOX LOGICA ---
+
+                if (s.x < -150) spikes.splice(i, 1);
+            }
+        } else {
+            msg.innerText = "GAME OVER";
+        }
+
+        draw();
+        requestAnimationFrame(update);
+    }
+
+    function draw() {
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Lijn achter de wave
+        ctx.strokeStyle = '#0ff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        trail.forEach((p, i) => {
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        });
+        ctx.stroke();
+
+        // Spikes tekenen
+        ctx.fillStyle = '#ff3333';
+        spikes.forEach(s => {
+            ctx.beginPath();
+            if (s.isTop) {
+                ctx.moveTo(s.x - s.w/2, 0);
+                ctx.lineTo(s.x + s.w/2, 0);
+                ctx.lineTo(s.x, s.h);
+            } else {
+                ctx.moveTo(s.x - s.w/2, canvas.height);
+                ctx.lineTo(s.x + s.w/2, canvas.height);
+                ctx.lineTo(s.x, canvas.height - s.h);
+            }
+            ctx.fill();
+        });
+
+        // Speler (de Wave)
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(playerX, py, 10, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    reset();
+    isGameOver = true;
+    update();
+</script>
+</body>
+</html>
