@@ -118,7 +118,7 @@ window.addEventListener('keyup', (e) => {
 
             // Spikes spawnen elke 30 frames
             frameCount++;
-            if (frameCount % 30 === 0) spawnSpike();
+            if (frameCount % 20 === 0) spawnSpike();
 
             for (let i = spikes.length - 1; i >= 0; i--) {
                 let s = spikes[i];
