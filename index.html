@@ -81,8 +81,8 @@ window.addEventListener("mousedown", press);
 window.addEventListener("mouseup", release);
 window.addEventListener("touchstart", e=>{ e.preventDefault(); press(); }, {passive:false});
 window.addEventListener("touchend", release);
-window.addEventListener("keydown", e=>{ if(e.code==="Space") press(); });
-window.addEventListener("keyup", e=>{ if(e.code==="Space") release(); });
+window.addEventListener("keydown", e=>{ if(e.code==="ArrowUp") press(); });
+window.addEventListener("keyup", e=>{ if(e.code==="ArrowUp") release(); });
 
 function getY(x){
     if(path.length<2) return canvas.height/2;
